@@ -1,0 +1,41 @@
+# Commits tidy what they touch; `pnpm check` is the gate
+pre-commit:
+  jobs:
+    # Git hooks run without node_modules/.bin on PATH
+    # ESLint exits 1 for findings it could not fix, which wait for `pnpm check`; 2 is a crash
+    - name: lint
+      glob: "*.ts"
+      run: node_modules/.bin/eslint --fix --cache --cache-location node_modules/.cache/eslint/ {staged_files} || [ $? -eq 1 ]
+      stage_fixed: true
+    - name: format
+      run: node_modules/.bin/prettier --write --ignore-unknown --log-level warn {staged_files}
+      stage_fixed: true
+    # phpcbf exits 1 when it fixed everything, 2 when a fixer failed
+    - name: php
+      glob: "*.php"
+      run: vendor/bin/phpcbf -q {staged_files} || [ $? -eq 1 ]
+      stage_fixed: true
+
+check:
+  parallel: true
+  jobs:
+    - name: format
+      run: prettier --check --log-level warn .
+    - name: types
+      run: tsc
+    # A type-aware finding caused by an edit elsewhere waits until its own file changes; `rm -r node_modules/.cache/eslint` rechecks all
+    - name: lint
+      run: eslint --cache --cache-location node_modules/.cache/eslint/ .
+    - name: test
+      run: node --test 'skills/**/*.test.ts'
+    - name: php
+      group:
+        piped: true
+        jobs:
+          - name: vendor
+            run: 'test -x vendor/bin/phpcs || { echo "vendor/ is missing: run composer install"; exit 1; }'
+          # `php -l` takes many files from PHP 8.3
+          - name: syntax
+            run: find . \( -path ./vendor -o -path ./node_modules -o -path ./.git \) -prune -o -name '*.php' -exec php -d display_errors=stderr -d log_errors=0 -l {} + > /dev/null
+          - name: phpcs
+            run: vendor/bin/phpcs -q

@@ -1,0 +1,25 @@
+{
+  "name": "wp-skills",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code skills for working on live WordPress installs",
+  "license": "MIT",
+  "scripts": {
+    "check": "lefthook run check",
+    "fix": "eslint --fix --cache --cache-location node_modules/.cache/eslint/ .; prettier --write --log-level warn .; vendor/bin/phpcbf -q || [ $? -eq 1 ]"
+  },
+  "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "eslint": "^10.13.0",
+    "eslint-plugin-perfectionist": "^5.13.0",
+    "eslint-plugin-unicorn": "^78.0.0",
+    "jiti": "^2.7.0",
+    "lefthook": "^2.2.2",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
+  },
+  "packageManager": "pnpm@11.4.0"
+}

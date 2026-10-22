@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<ruleset name="wp-skills">
+	<file>skills</file>
+	<arg name="extensions" value="php"/>
+	<arg value="s"/>
+
+	<!-- Helpers run under a server CLI's PHP, which can be very old; 7.2 is core's minimum since WordPress 6.6 -->
+	<config name="testVersion" value="7.2-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress-Core">
+		<!-- Table names come from SHOW TABLES and columns from fixed lists; `%i` for identifiers needs WordPress 6.2 -->
+		<exclude name="WordPress.DB.PreparedSQL"/>
+		<!-- The `fgets` read loop -->
+		<exclude name="Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition"/>
+	</rule>
+</ruleset>

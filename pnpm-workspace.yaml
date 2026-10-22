@@ -1,0 +1,3 @@
+# Lefthook installs the git hooks on `pnpm install`
+allowBuilds:
+  lefthook: true
