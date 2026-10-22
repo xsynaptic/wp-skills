@@ -1,0 +1,160 @@
+{
+  "id": "updraftcentral-2026",
+  "title": "Implant plugins uploaded through stolen UpdraftCentral connection keys",
+  "technique": "remote-management keys",
+  "verified": "2026-10-21",
+  "sources": ["https://nethemba.com/updraftcentral-backdoor-analysis/"],
+  "indicators": [
+    {
+      "kind": "request",
+      "role": "attack",
+      "strength": "strong",
+      "label": "probe",
+      "method": "POST",
+      "path": "/",
+      "userAgent": "^WordPress/[0-9.]+; class-udrpc\\.php$",
+      "requestBytes": [60, 90],
+      "responseBytes": [200, 300],
+      "note": "Key test; the command log records it as not understood for a probe hostname. The attack tool names the UDRPC library with no library version and no vendor URL, while the owner's own dashboard has been seen sending a versioned library name followed by the vendor's URL"
+    },
+    {
+      "kind": "request",
+      "role": "attack",
+      "strength": "strong",
+      "label": "command",
+      "method": "POST",
+      "path": "/",
+      "userAgent": "^WordPress/[0-9.]+; class-udrpc\\.php$",
+      "requestBytes": [3500, 5500],
+      "responseBytes": [1500, 1800],
+      "note": "An upload-plugin command and its reply, observed across four sites; a reply the size of the ordinary front page means nothing reached a handler"
+    },
+    {
+      "kind": "file-string",
+      "role": "implant",
+      "strength": "strong",
+      "match": "literal",
+      "value": "Small maintenance toolkit",
+      "roots": ["plugins", "mu-plugins"],
+      "note": "Description line of the implant template's plugin header; a variant with a new description evades it"
+    },
+    {
+      "kind": "file-string",
+      "role": "implant",
+      "strength": "strong",
+      "match": "literal",
+      "value": "PixelBinder",
+      "roots": ["plugins", "mu-plugins"],
+      "note": "Author line of the implant template's plugin header"
+    },
+    {
+      "kind": "file-string",
+      "role": "implant",
+      "strength": "strong",
+      "match": "literal",
+      "value": "_SVC_LOGIN",
+      "roots": ["plugins", "mu-plugins"],
+      "note": "Constant name in the published analysis of the template"
+    },
+    {
+      "kind": "file-string",
+      "role": "implant",
+      "strength": "strong",
+      "match": "literal",
+      "value": "_SVC_PASS",
+      "roots": ["plugins", "mu-plugins"],
+      "note": "Constant name in the published analysis of the template"
+    },
+    {
+      "kind": "plugin-slug",
+      "role": "implant",
+      "strength": "weak",
+      "value": "^[a-z]+(-[a-z]+){1,2}(-[0-9a-f]{1,3})?$",
+      "note": "Two or three plain words plus an optional short hex or digit suffix; most legitimate slugs match too, so it only corroborates an off-repo, recent or headerless plugin"
+    },
+    {
+      "kind": "option-name",
+      "role": "implant",
+      "strength": "strong",
+      "value": "%\\_sync\\_token",
+      "note": "Implant trigger token, written at activation and left behind when the folder is quarantined; confirm no installed plugin owns the prefix"
+    },
+    {
+      "kind": "option-name",
+      "role": "implant",
+      "strength": "weak",
+      "value": "%\\_setup\\_stamp",
+      "note": "Written at activation beside the sync token"
+    },
+    {
+      "kind": "option-name",
+      "role": "implant",
+      "strength": "weak",
+      "value": "%\\_installed",
+      "note": "The working build's install timestamp; common in legitimate plugins, so a finding only when its prefix is the slug of a plugin missing from disk"
+    },
+    {
+      "kind": "cron-hook",
+      "role": "implant",
+      "strength": "weak",
+      "value": "%\\_maintenance",
+      "note": "The working build's daily hook; WP-Cron keeps rescheduling it after the folder is gone"
+    },
+    {
+      "kind": "user-login",
+      "role": "implant",
+      "strength": "strong",
+      "value": "render\\_build%",
+      "note": "Login pattern the implant creates; no such user was ever created on the sites studied"
+    },
+    {
+      "kind": "user-login",
+      "role": "implant",
+      "strength": "strong",
+      "value": "render\\_maint%",
+      "note": "Login pattern from the published analysis"
+    },
+    {
+      "kind": "user-login",
+      "role": "implant",
+      "strength": "strong",
+      "value": "content.desk%",
+      "note": "Login pattern the implant creates"
+    },
+    {
+      "kind": "user-login",
+      "role": "implant",
+      "strength": "strong",
+      "value": "site.staff%",
+      "note": "Login pattern the implant creates"
+    },
+    {
+      "kind": "user-email",
+      "role": "implant",
+      "strength": "weak",
+      "value": "%@example.org",
+      "note": "The implant's user gets a placeholder address; sites also give byline accounts placeholder addresses, so check the role and the registration date"
+    },
+    {
+      "kind": "option-name",
+      "role": "entry",
+      "strength": "strong",
+      "value": "updraft\\_central\\_localkeys",
+      "note": "Stored connection keys; on a site with a key, the key itself is the exposure, and reinstalling or updating UpdraftPlus while it is stored revives it"
+    },
+    {
+      "kind": "option-name",
+      "role": "evidence",
+      "strength": "strong",
+      "value": "updraftcentral\\_client\\_log",
+      "note": "The last 50 remote commands with time, address and user agent; decode it from the verified dump before any cleanup deletes UpdraftPlus's options"
+    },
+    {
+      "kind": "option-name",
+      "role": "evidence",
+      "strength": "weak",
+      "value": "\\_transient\\_udrpch\\_%",
+      "note": "UDRPC's replay cache; its value holds the time of the last command"
+    }
+  ]
+}

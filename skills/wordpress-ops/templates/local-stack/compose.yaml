@@ -1,0 +1,93 @@
+# Rehearsal stack: copy this folder to sites/<name>/local/, replace every <placeholder>, then run rebuild.ts
+# Uncomment the uploads-fallback mounts only for a snapshot without uploads; with them a missing file loads from production
+name: <project>
+
+x-wordpress: &wordpress
+  depends_on:
+    db:
+      condition: service_healthy
+  environment: &wordpress-environment
+    LOCAL_DB_HOST: db
+    LOCAL_DB_NAME: wordpress
+    LOCAL_DB_USER: wordpress
+    LOCAL_DB_PASSWORD: wordpress
+    PRODUCTION_ORIGIN: https://<domain>
+
+services:
+  db:
+    image: mariadb:<live version>
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpress
+      MARIADB_ROOT_PASSWORD: wordpress
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./db/db.sql.gz:/docker-entrypoint-initdb.d/db.sql.gz:ro
+    healthcheck:
+      # The entrypoint imports with networking off, so --connect fails until the import is done
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      start_period: 1h
+      start_interval: 5s
+
+  current:
+    <<: *wordpress
+    image: wordpress:php<served version>-apache
+    ports:
+      - "127.0.0.1:<current port>:80"
+    volumes:
+      - ./site:/var/www/html
+      # - ./apache/uploads-fallback.conf:/etc/apache2/conf-enabled/uploads-fallback.conf:ro
+      - ./apache/host.conf:/etc/apache2/conf-enabled/host.conf:ro
+      - ./php/local.ini:/usr/local/etc/php/conf.d/zz-local.ini:ro
+      - ./logs/current:/var/log/wordpress
+
+  target:
+    <<: *wordpress
+    image: wordpress:php<target version>-apache
+    ports:
+      - "127.0.0.1:<target port>:80"
+    volumes:
+      - ./site:/var/www/html
+      # - ./apache/uploads-fallback.conf:/etc/apache2/conf-enabled/uploads-fallback.conf:ro
+      - ./apache/host.conf:/etc/apache2/conf-enabled/host.conf:ro
+      - ./php/local.ini:/usr/local/etc/php/conf.d/zz-local.ini:ro
+      - ./logs/target:/var/log/wordpress
+
+  # A frozen copy from before a change, served beside the stack for render and style diffs
+  before:
+    <<: *wordpress
+    image: wordpress:php<served version>-apache
+    profiles: [before]
+    environment:
+      <<: *wordpress-environment
+      # `before` alone is a reserved word in MariaDB
+      LOCAL_DB_NAME: wordpress_before
+    ports:
+      - "127.0.0.1:<before port>:80"
+    volumes:
+      - ./site-before:/var/www/html
+      # - ./apache/uploads-fallback.conf:/etc/apache2/conf-enabled/uploads-fallback.conf:ro
+      - ./apache/host.conf:/etc/apache2/conf-enabled/host.conf:ro
+      - ./php/local.ini:/usr/local/etc/php/conf.d/zz-local.ini:ro
+      - ./logs/before:/var/log/wordpress
+
+  cli:
+    image: wordpress:cli-php8.3
+    profiles: [cli]
+    # The scripts exec into a running container; `run --rm cli wp ...` replaces this command
+    command: ["sleep", "infinity"]
+    depends_on:
+      db:
+        condition: service_healthy
+    user: "33:33"
+    environment:
+      <<: *wordpress-environment
+    volumes:
+      - ./site:/var/www/html
+      - ./php/local.ini:/usr/local/etc/php/conf.d/zz-local.ini:ro
+      - ./php/cli.ini:/usr/local/etc/php/conf.d/cli.ini:ro
+
+volumes:
+  db-data:
