@@ -5,7 +5,6 @@ import { compareVersions, inAdvisoryRange, isAffected } from "./lookups.ts";
 
 type Operator = Parameters<typeof isAffected>[1];
 
-// Operator records in the shape WPVulnerability publishes
 const ltBound = {
   max_operator: "lt",
   max_version: "1.26.5",

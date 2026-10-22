@@ -1,5 +1,4 @@
 <?php
-// Input: base64 JSON built by scan.ts
 // Reads only; prints paths, sizes, dates, line numbers and masked config lines
 $input          = json_decode( base64_decode( $args[0] ), true );
 $docroot        = rtrim( ABSPATH, '/' );

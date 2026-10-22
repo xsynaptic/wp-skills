@@ -1,5 +1,5 @@
 <?php
-// Input: base64 JSON indicators built by scan.ts, with SQL LIKE values; prints names and lengths, never values
+// Indicator values are SQL LIKE patterns; the output holds names and lengths, never values
 // Every table prefix is searched, since a dormant second install is a place to hide
 global $wpdb;
 $input   = json_decode( base64_decode( $args[0] ), true );
