@@ -2,7 +2,7 @@
 
 Closing the exposures an inherited site carries, whether or not anyone used them. On **the owner's site** most items are the owner's call: each is applied after approval, or recorded as their choice under "Decisions recorded as choices" in the workspace `CLAUDE.md` with what would reopen it; owner steps go in the owner message ([owner-handoff.md](owner-handoff.md)). Take what fits the site; the items are a menu, not a sequence.
 
-Proving something gone from the web reads the cache headers (`age`, `x-cache`, `cf-cache-status`) as well as the status: a deleted script answered 200 from the proxy cache for hours, and a deleted stylesheet stayed on the CDN edge until purged.
+Proving something gone from the web reads the cache headers (`age`, `x-cache`, `cf-cache-status`) as well as the status: a deleted script answered 200 from the proxy cache for hours, and a deleted stylesheet stayed on the CDN edge until purged. Probe an exposed file at the origin (`curl --resolve <domain>:443:<origin address>`): a request through the CDN caches it at the edge, where only a purge removes it.
 
 ## 1. Remote-management keys
 

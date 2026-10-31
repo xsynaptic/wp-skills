@@ -70,7 +70,7 @@
       "role": "implant",
       "strength": "weak",
       "value": "^[a-z]+(-[a-z]+){1,2}(-[0-9a-f]{1,3})?$",
-      "note": "Two or three plain words plus an optional short hex or digit suffix; most legitimate slugs match too, so it only corroborates an off-repo, recent or headerless plugin"
+      "note": "Two or three plain words plus an optional short hex or digit suffix; most legitimate slugs match too, so it counts only beside a headerless plugin or a strong hit"
     },
     {
       "kind": "option-name",

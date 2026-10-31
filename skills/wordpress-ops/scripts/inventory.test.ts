@@ -7,7 +7,7 @@ import type { DirectoryRecord, Fetched } from "./lookups.ts";
 import {
   comparableVersion,
   inventoryFlags,
-  isClaimable,
+  isVouchedFor,
   pluginSlug,
 } from "./inventory.ts";
 import { isAffected } from "./lookups.ts";
@@ -249,21 +249,40 @@ describe("inventoryFlags", () => {
   });
 });
 
-describe("isClaimable", () => {
-  test("listed code that verifies against wordpress.org is left out, however stale", () => {
-    assert.equal(isClaimable(akismet), false);
-    assert.equal(isClaimable(phpCodeWidget), false);
-    assert.equal(isClaimable(twentyTwentyFive), false);
+describe("isVouchedFor", () => {
+  before(() => {
+    mock.timers.enable({
+      apis: ["Date"],
+      now: new Date("2026-10-22T00:00:00Z"),
+    });
+  });
+  after(() => {
+    mock.timers.reset();
   });
 
-  test("code wordpress.org can't vouch for is claimed", () => {
-    assert.equal(isClaimable(popupAnything), true);
-    assert.equal(isClaimable(liteSweepPremium), true);
-    assert.equal(isClaimable(helloLookupFailed), true);
+  test("a maintained listed plugin whose files verify is vouched for", () => {
+    assert.equal(isVouchedFor(akismet, true), true);
   });
 
-  test("a release from a new owner or author is claimed", () => {
-    assert.equal(isClaimable(akismetReassigned), true);
-    assert.equal(isClaimable(twentyTwentyFiveOtherAuthor), true);
+  test("the same plugin with modified or unverifiable files is not", () => {
+    assert.equal(isVouchedFor(akismet, false), false);
+  });
+
+  test("a listed plugin without a release in two years is not, though it verifies", () => {
+    assert.equal(isVouchedFor(phpCodeWidget, true), false);
+  });
+
+  test("themes are not, having no checksums to verify against", () => {
+    assert.equal(isVouchedFor(twentyTwentyFive, true), false);
+  });
+
+  test("closed, absent and unlooked-up plugins are not", () => {
+    assert.equal(isVouchedFor(popupAnything, true), false);
+    assert.equal(isVouchedFor(liteSweepPremium, true), false);
+    assert.equal(isVouchedFor(helloLookupFailed, true), false);
+  });
+
+  test("a release from a new owner is not", () => {
+    assert.equal(isVouchedFor(akismetReassigned, true), false);
   });
 });

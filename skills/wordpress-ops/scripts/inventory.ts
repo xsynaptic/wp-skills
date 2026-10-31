@@ -143,11 +143,17 @@ export function inventoryFlags(
   return flags;
 }
 
-export function isClaimable(component: Component): boolean {
-  if (!component.directory.isOk) return true;
+// Themes have no published checksums, so no theme is vouched for
+export function isVouchedFor(
+  component: Component,
+  isVerified: boolean,
+): boolean {
+  if (!isVerified || component.kind !== "plugin" || !component.directory.isOk)
+    return false;
+  const record = component.directory.value;
+  if (record.state !== "listed" || !record.lastUpdated) return false;
   return (
-    component.directory.value.state !== "listed" ||
-    authorChange(component) !== null
+    yearsSince(record.lastUpdated) <= 2 && authorChange(component) === null
   );
 }
 

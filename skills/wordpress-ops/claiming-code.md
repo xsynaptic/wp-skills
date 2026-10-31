@@ -26,23 +26,7 @@ Why the tripwire and the checksums run on current versions too: a portfolio of 2
 
 ## 2. Read the code
 
-Read anything off wordpress.org, any release from a new owner, and any component with a vulnerability history. Grep first, then read each hit with its guard:
-
-```sh
-LC_ALL=C grep -rnE \
-  -e 'wp_ajax_nopriv_|register_rest_route|permission_callback' \
-  -e '(call_user_func(_array)?|\$_(GET|POST|REQUEST|COOKIE)\[[^]]+\])[[:space:]]*\(' \
-  -e 'unserialize[[:space:]]*\(|maybe_unserialize[[:space:]]*\(' \
-  -e 'hash_equals[[:space:]]*\(|eval[[:space:]]*\(|assert[[:space:]]*\(|create_function' \
-  -e 'base64_decode|gzinflate|gzuncompress|str_rot13|strrev[[:space:]]*\(' \
-  -e "'(all_plugins|pre_user_query|views_users)'" \
-  -e "'(authenticate|wp_authenticate|wp_authenticate_user|wp_login|check_password)'" -e '\$_(POST|REQUEST)\[.pwd.\]' \
-  -e 'wp_remote_(get|post|request)|curl_exec|file_get_contents[[:space:]]*\([[:space:]]*.https?:' \
-  -e 'https?://[0-9]{1,3}(\.[0-9]{1,3}){3}' \
-  -e 'file_put_contents|fwrite[[:space:]]*\(|move_uploaded_file|unlink[[:space:]]*\(' \
-  -e 'wp_insert_user|wp_create_user|add_cap[[:space:]]*\(|set_role[[:space:]]*\(|wp_set_auth_cookie' \
-  <component>
-```
+Read every component nothing vouches for: every theme, and every plugin except a maintained wordpress.org release whose files match its checksums. A modified copy of a wordpress.org plugin is off-repo code, however old the original. `scan.ts` runs the triage patterns over each (`$triage_patterns` in `scripts/php/files.php` is the one list), then read each hit with its guard:
 
 | Pattern | Read for |
 | --- | --- |
@@ -55,10 +39,13 @@ LC_ALL=C grep -rnE \
 | login hooks, reads of `$_POST['pwd']` | a callback that keeps or sends the plain password is a credential skimmer; security and 2FA plugins hook the same filters to check it, not keep it |
 | remote calls | what leaves the site, to which host, carrying what; a bare IP address for the host is a tell |
 | file and capability writes | users created, capabilities granted per user, files written outside uploads |
+| SQL built from input or escaped by hand | injection: only `$wpdb->prepare()` or an integer cast makes it safe, and escaping that runs before a decode lets an encoded quote through |
+| request input printed raw | reflected XSS; values a visitor wrote that come back from the database (referers, names) print the same way and match no pattern |
+| writes from request input with no nonce check | CSRF: any page a logged-in user opens can send the request |
 
 A Semgrep pass ([tools.md](tools.md#static-analysis)) adds taint paths inside each function; it narrows the reading, never replaces it.
 
-For code you will own, also the quick pass after the 12-item checklist in iwritec0de/wp-dev (MIT): unescaped output, unsanitized superglobals, missing nonces, raw SQL built from input, missing capability checks, unsafe file operations, unvalidated redirects, hardcoded secrets, debug output left on, path traversal.
+No pattern sees a missing capability check, an unvalidated redirect or a path traversal: read each handler for those.
 
 - **Read the guard.** A visitor-registered handler that checks a nonce and a capability before acting is fine; one that checks only a nonce printed to every visitor isn't. A theme's data migrator guarded only by "logged in" lets any contributor rerun it and overwrite theme options.
 - **Prove it harmlessly, locally.** Replay the request on the rehearsal stack as a visitor or a low-privilege user, with a harmless argument (`count`, a marker string). Never against live.

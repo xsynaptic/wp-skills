@@ -46,7 +46,7 @@ Keep every site the operator looks after on one server, or one hosting account, 
 
 ## Secrets
 
-The work handles `wp-config.php` constants, salts, password hashes and the third-party tokens plugins store in options (backup storage, licence keys, API keys, webhook URLs, mail and CDN credentials). A value that prints is in the transcript for good, and regex masking leaks: JSON-escaped slashes and the escaped quotes of a serialized option slip past it.
+The work handles `wp-config.php` constants, salts, password hashes and the third-party tokens plugins store in options (backup storage, licence keys, API keys, webhook URLs, mail and CDN credentials). A value that prints is in the transcript for good, and regex masking leaks: JSON-escaped slashes, the escaped quotes of a serialized option and unquoted values slip past it. A search for secrets reports paths and counts (`grep -l`, `grep -c`), never the matching lines.
 
 - **Config:** read names and lengths, never values: `wp config list --fields=name,type --format=csv`, and `wp config get DB_PASSWORD | tr -d '\n' | wc -c` for a length.
 - **Structured values:** decode first, then print the shape with every string replaced by its length. Compare two values by a hash prefix (`| shasum -a 256 | cut -c1-12`).

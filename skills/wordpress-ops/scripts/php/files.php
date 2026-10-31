@@ -13,11 +13,14 @@ $triage_patterns = array(
 	array( 'call built from request input', 'high', '/\b(?:call_user_func(?:_array)?|array_map|array_walk|usort|register_shutdown_function)\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE|SERVER)\b|\$_(?:GET|POST|REQUEST|COOKIE)\s*\[[^\]]*\]\s*\(/' ),
 	array( 'unserialize of request input', 'high', '/\b(?:maybe_)?unserialize\s*\(\s*(?:(?:wp_unslash|stripslashes|base64_decode)\s*\(\s*)?\$_(?:GET|POST|REQUEST|COOKIE)\b/' ),
 	array( 'hash_equals against a literal', 'high', '/\bhash_equals\s*\(\s*[\'"][^\'"]{6,}[\'"]|\bhash_equals\s*\([^;]{0,200}?,\s*[\'"][^\'"]{6,}[\'"]\s*\)/' ),
-	array( 'eval, assert or create_function', 'high', '/(?<![\w>$:])(?:eval|assert|create_function)\s*\(/' ),
+	array( 'eval, assert or create_function', 'high', '/(?<![\w>$:])(?<!function )(?:eval|assert|create_function)\s*\(/' ),
 	array( 'decode then execute', 'high', '/(?<![\w>$:])(?:eval|assert)\s*\(\s*@?\s*(?:base64_decode|gzinflate|gzuncompress|gzdecode|str_rot13|strrev|hex2bin|rawurldecode)\s*\(/i' ),
 	array( 'plugin or user list filtered', 'high', '/\badd_(?:filter|action)\s*\(\s*[\'"](?:all_plugins|pre_user_query|users_list_table_query_args|views_users)[\'"]/' ),
 	array( 'auth cookie set', 'high', '/\b(?:wp_set_auth_cookie|wp_set_current_user)\s*\(/' ),
 	array( 'user or capability write', 'high', '/\b(?:wp_insert_user|wp_create_user|wp_update_user|add_cap|add_role|set_role|grant_super_admin)\s*\(/' ),
+	array( 'SQL built from request input', 'high', '/[\'"]\s*(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|REPLACE\s+INTO)\s[^;]*?\.\s*\$_(?:GET|POST|REQUEST|COOKIE|SERVER)\b|\$wpdb->(?:query|get_results|get_row|get_var|get_col)\s*\((?![^;]*->prepare\s*\()[^;]*\$_(?:GET|POST|REQUEST|COOKIE|SERVER)\b/i' ),
+	array( 'SQL escaped by hand', 'review', '/[\'"]\s*(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|REPLACE\s+INTO)\s[^;]*?\b(?:addslashes|mysql_real_escape_string|mysql_escape_string)\s*\(/i' ),
+	array( 'request input printed raw', 'review', '/(?:\becho\b|\bprint\b|<\?=)(?:(?:(?!\?>|esc_\w+\s*\(|htmlspecialchars|htmlentities|wp_kses|absint|intval)[^;])*?\.)?\s*(?:\$_(?:GET|POST|REQUEST|COOKIE)\s*\[|\$_SERVER\s*\[\s*[\'"](?:REQUEST_URI|PHP_SELF|QUERY_STRING|HTTP_\w+)[\'"])/' ),
 	array( 'nopriv AJAX handler', 'review', '/[\'"]wp_ajax_nopriv_/' ),
 	array( 'REST route open to anyone', 'review', '/[\'"]permission_callback[\'"]\s*=>\s*[\'"]__return_true[\'"]/' ),
 	array( 'login hook or password read', 'review', '/\badd_(?:filter|action)\s*\(\s*[\'"](?:authenticate|wp_authenticate|wp_authenticate_user|wp_login|check_password)[\'"]|\$_(?:POST|REQUEST)\s*\[\s*[\'"]pwd[\'"]/' ),
@@ -89,6 +92,15 @@ $triage = function ( $content ) use ( $triage_patterns ) {
 			'severity' => $severity,
 			'count'    => count( $matches[0] ),
 			'lines'    => $lines,
+		);
+	}
+	// A nonce check anywhere in the file clears it; reading the guard is still the reviewer's job
+	if ( preg_match( '/\b(?:update_option|add_option|delete_option|update_(?:user|post)_meta|wp_(?:insert|update|delete)_post|\$wpdb->(?:query|insert|update|delete|replace))\s*\([^;]*\$_(?:GET|POST|REQUEST)\s*\[/', $content, $match, PREG_OFFSET_CAPTURE )
+		&& ! preg_match( '/\b(?:check_admin_referer|check_ajax_referer|wp_verify_nonce)\s*\(/', $content ) ) {
+		$hits['request handled with no nonce check'] = array(
+			'severity' => 'review',
+			'count'    => 1,
+			'lines'    => array( substr_count( $content, "\n", 0, $match[0][1] ) + 1 ),
 		);
 	}
 	return $hits;
@@ -267,7 +279,8 @@ if ( is_dir( $uploads ) ) {
 			$reason = 'code extension';
 		} else {
 			$head = @file_get_contents( $path, false, null, 0, 4096 );
-			if ( false !== $head && preg_match( '/<\?(php|=)/i', $head ) ) {
+			// A bare `<?=` turns up by chance in compressed image data; a short echo tag that runs something has an operand
+			if ( false !== $head && preg_match( '/<\?php\b|<\?=\s*(?:`|\$_|[a-z_]\w*\s*\()/i', $head ) ) {
 				$reason = 'PHP tag in the first 4 KB';
 			}
 		}

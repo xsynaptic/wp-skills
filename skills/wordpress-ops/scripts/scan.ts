@@ -25,7 +25,7 @@ import {
   comparableVersion,
   gatherComponents,
   inventoryFlags,
-  isClaimable,
+  isVouchedFor,
   ownerKey,
   pluginSlug,
   previousOwners,
@@ -38,7 +38,11 @@ import {
   lookupVulnerabilities,
 } from "./lookups.ts";
 import { connect, lastJsonLine } from "./remote.ts";
-import { parseUpdates, summarizeCoreChecksums } from "./wp-cli-output.ts";
+import {
+  parseUpdates,
+  summarizeCoreChecksums,
+  unverifiedPlugins,
+} from "./wp-cli-output.ts";
 
 const usage = "usage: node scan.ts [site...]";
 const recentRegistrationDays = 60;
@@ -253,9 +257,29 @@ async function scanSite(
       (entry) =>
         `${manifest.plugin_dir}/${entry.file.split("/", 1)[0] ?? entry.file}`,
     );
+  const mismatches = pluginChecksums.stdout.trimStart().startsWith("[")
+    ? (lastJsonLine(pluginChecksums.stdout, "plugin verify-checksums") as {
+        file: string;
+        message: string;
+        plugin_name: string;
+      }[])
+    : [];
+  const unverified = unverifiedPlugins(
+    mismatches.map((mismatch) => mismatch.plugin_name),
+    pluginChecksums.stderr,
+    pluginChecksums.exitCode === 0 || mismatches.length > 0,
+  );
   const triageTargets = [
     ...new Set([
-      ...components.filter(isClaimable).map((component) => component.path),
+      ...components
+        .filter(
+          (component) =>
+            !isVouchedFor(
+              component,
+              unverified !== null && !unverified.has(component.slug),
+            ),
+        )
+        .map((component) => component.path),
       ...unlistedOnDisk,
     ]),
   ];
@@ -521,9 +545,9 @@ async function scanSite(
   }
   lines.push(
     "",
-    "## Code triage of components off wordpress.org, closed, or under a changed owner or author",
+    "## Code triage of components nothing vouches for",
     "",
-    "Pattern hits are leads for reading, not verdicts. What wasn't read: wordpress.org releases whose owner and author are unchanged (the checksums below cover those plugins), and any file over 8 MB.",
+    "Every theme, and every plugin except maintained wordpress.org releases (updated within two years, under their listed author) whose files match the release's checksums. Pattern hits are leads for reading, not verdicts; a component without hits is still unread. What wasn't read: the vouched-for plugins, and any file over 8 MB.",
     "",
   );
   for (const target of triageTargets) {
@@ -544,21 +568,12 @@ async function scanSite(
       : [];
     if (high.length > 0)
       headline.push(
-        `\`${target}\` (off wordpress.org, closed, or changed hands): ${high.map(([label, hit]) => `${label} ×${hit.count}`).join(", ")}`,
+        `\`${target}\` (unvouched code): ${high.map(([label, hit]) => `${label} ×${hit.count}`).join(", ")}`,
       );
   }
   if (triageTargets.length === 0)
-    lines.push(
-      "- none: every component is a wordpress.org release under its listed author",
-    );
+    lines.push("- none: every component is a vouched-for wordpress.org plugin");
   lines.push("", "## Plugin file integrity (wordpress.org plugins only)", "");
-  const mismatches = pluginChecksums.stdout.trimStart().startsWith("[")
-    ? (lastJsonLine(pluginChecksums.stdout, "plugin verify-checksums") as {
-        file: string;
-        message: string;
-        plugin_name: string;
-      }[])
-    : [];
   if (mismatches.length === 0)
     lines.push(
       pluginChecksums.exitCode === 0
@@ -682,25 +697,14 @@ async function scanSite(
     );
 
   const byKey = new Map(indicators.map((entry) => [entry.key, entry]));
-  const offRepositorySlugs = components
-    .filter(
-      (component) =>
-        component.kind === "plugin" &&
-        component.directory.isOk &&
-        component.directory.value.state !== "listed",
-    )
-    .map((component) => normalizeObject(component.slug));
   const unlistedSlugs = manifest.unlisted_active.map((entry) =>
     normalizeObject(pluginSlug(entry.file)),
   );
   const userSignals = accounts.flagged
     .filter((user) => user.direct_caps.length > 0 || user.is_recent)
     .map((user) => normalizeObject(user.login));
-  const signalled = new Set([
-    ...offRepositorySlugs,
-    ...unlistedSlugs,
-    ...userSignals,
-  ]);
+  // Off-repo alone corroborates nothing: every premium plugin is off-repo, and triage reads them all
+  const signalled = new Set([...unlistedSlugs, ...userSignals]);
   const objectOfPath = (file: string) =>
     normalizeObject(
       file
@@ -785,7 +789,7 @@ async function scanSite(
         "",
       );
     headline.push(
-      `[${entry.pack}] ${entry.indicator.role}${entry.indicator.kind === "request" ? ` ${entry.indicator.label}` : ""}: ${hit.subject}`,
+      `[${entry.pack}] ${entry.indicator.role}${entry.indicator.kind === "request" ? ` ${entry.indicator.label}` : ""}${entry.indicator.strength === "weak" ? " (weak, corroborated)" : ""}: ${hit.subject}`,
     );
   }
   const unlabelled = files.request_hits.find(

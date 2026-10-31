@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { parseUpdates, summarizeCoreChecksums } from "./wp-cli-output.ts";
+import {
+  parseUpdates,
+  summarizeCoreChecksums,
+  unverifiedPlugins,
+} from "./wp-cli-output.ts";
 
 // Captured from WP-CLI 2.12 (checksum-command 2.3.1) on PHP 8.5, against wordpress.org's real tarballs
 
@@ -89,6 +93,45 @@ describe("parseUpdates", () => {
         ["akismet", "5.7.2"],
         ["twentytwentyfour", "1.6"],
       ]),
+    );
+  });
+});
+
+describe("unverifiedPlugins", () => {
+  // `wp plugin verify-checksums --all --format=json` prints the failures as JSON and each skip as a warning
+  const skipWarning =
+    "Warning: Could not retrieve the checksums for version 3.1.0 of plugin premium-builder, skipping.";
+
+  test("collects modified plugins and those without published checksums", () => {
+    assert.deepEqual(
+      unverifiedPlugins(
+        ["forked-plugin", "forked-plugin"],
+        [phpDeprecation, skipWarning].join("\n"),
+        true,
+      ),
+      new Set(["forked-plugin", "premium-builder"]),
+    );
+  });
+
+  test("vouches for nothing when the run gave no failure list", () => {
+    assert.equal(
+      unverifiedPlugins(
+        [],
+        "Error: cURL error 6: Could not resolve host",
+        false,
+      ),
+      null,
+    );
+  });
+
+  test("vouches for nothing when a skip warning names no plugin it can read", () => {
+    assert.equal(
+      unverifiedPlugins(
+        [],
+        "Warning: Could not retrieve the checksums, skipping.",
+        true,
+      ),
+      null,
     );
   });
 });

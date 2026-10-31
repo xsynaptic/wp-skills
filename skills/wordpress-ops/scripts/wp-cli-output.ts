@@ -14,6 +14,24 @@ export function summarizeCoreChecksums(output: string): {
   return { flags, isUnavailable: !isVerified && flags.length === 0 };
 }
 
+// WP-CLI lists only failures, so a run whose list or skip warnings can't be read vouches for no plugin
+export function unverifiedPlugins(
+  failed: string[],
+  stderr: string,
+  isComplete: boolean,
+): null | Set<string> {
+  if (!isComplete) return null;
+  const skipped = stderr
+    .matchAll(
+      /Could not retrieve the checksums for version \S+ of plugin ([^\s,]+), skipping\./g,
+    )
+    .map((match) => match[1] ?? "")
+    .toArray();
+  const warnings = stderr.match(/Could not retrieve the checksums/g)?.length;
+  if (skipped.length !== (warnings ?? 0)) return null;
+  return new Set([...failed, ...skipped]);
+}
+
 export function parseUpdates(output: string): Map<string, string> {
   const updates = new Map<string, string>();
   for (const line of output.split("\n")) {

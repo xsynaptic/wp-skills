@@ -91,7 +91,7 @@ State the continuous coverage window per log type, with stale rotations named as
 
 ## Beyond the docroot
 
-The account usually holds more than the WordPress docroot: the app's config folder, home dotfiles (shell rc files run on every login), server config the SSH user can read (PHP, web server, cache, database), crontabs, the host's own backups on the server's disk, and other docroots or databases. Image what the user can read in one call, into the snapshot beside the site:
+The account usually holds more than the WordPress docroot: the app's config folder, home dotfiles (shell rc files run on every login; shell history keeps passwords typed on the command line), server config the SSH user can read (PHP, web server, cache, database), crontabs, the host's own backups on the server's disk, and other docroots or databases. Image what the user can read in one call, into the snapshot beside the site:
 
 ```sh
 rsync -aR --exclude=<docroot> --exclude=<logs> <host>:<path> <host>:<path> … snapshots/<stamp>/account/

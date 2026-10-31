@@ -44,7 +44,7 @@ Unordered; each feeds the verdicts.
 
 - **Timeline:** logs plus the site's own records ([dating without logs](#dating-without-logs)), every event in UTC with its source, beside the stated log coverage. Include returns after containment: an attacker often comes back within hours, and a return that got the ordinary page and added no command-log entry reached nothing.
 - **Database:** the [battery](#database-audit-battery) on a throwaway restore of the as-found dump, read-only, then on the post-containment dump, diffed.
-- **Code nobody vouches for:** every mu-plugin, drop-in, docroot-level and above-docroot PHP file, every non-WordPress folder in the docroot, and every component not on wordpress.org, read with the triage patterns in [claiming-code.md](claiming-code.md). A scan that lists an mu-plugin as informational has not read it. Say what wasn't read.
+- **Code nobody vouches for:** every mu-plugin, drop-in, docroot-level and above-docroot PHP file, every non-WordPress folder in the docroot, and every component nothing vouches for, read as [claiming-code.md](claiming-code.md#2-read-the-code) says. A scan that lists an mu-plugin as informational has not read it. Say what wasn't read.
 - **What checksums can't see** ([below](#beyond-checksums)), and the [entry vector](#entry-vector).
 
 ## Indicator classes
